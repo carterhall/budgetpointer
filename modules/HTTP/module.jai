@@ -9,14 +9,13 @@ Verb :: enum_flags { GET; POST; PUT; DELETE; PATCH; TRACE; OPTIONS; CONNECT; HEA
 
 Key_Value :: struct { key: string; value: string; }
 Header :: #type,distinct Key_Value;
-URL_Parameter :: #type,distinct Key_Value;
 
 Request :: struct {
   verb: Verb;
   uri:  string;
   protocol: string;
   headers: [] Header;
-  url_params: [] URL_Parameter;
+  url_params: Table(string, string);
   body: string;
 }
 
@@ -243,19 +242,19 @@ handle_request :: (server: *Server, socket: s32) {
       if request.uri.count > 1 && request.uri[request.uri.count-1] == #char "/"  request.uri.count -= 1;
 
       if split_url.count >= 2 {
-        url_params: [..] URL_Parameter;
-
         url_params_string := split_url[1];
         url_params_split := split(url_params_string, "&");
 
         for url_param_string: url_params_split {
           if url_param_string.count > 1 {
             url_param_split := split(url_param_string, "=");
-            array_add(*url_params, .{ key=percent_decode(url_param_split[0]), value=percent_decode(url_param_split[1]) });
+            key := percent_decode(url_param_split[0]); 
+            value := percent_decode(url_param_split[1]);
+            table_add(*request.url_params, key, value);
           }
         }
 
-        request.url_params = url_params;
+        print("Table after adding params: %\n", request.url_params);
       }
 
       request.verb = http_text_to_verb(request_info[0]);
@@ -310,6 +309,7 @@ thread_proc :: (group: *Thread_Group, thread: *Thread, work: *void) -> Thread_Co
 #import "Thread";
 #import "System";
 #import "String";
+#import "Hash_Table";
 //#import "uniform";  // regex, third party
 
 #scope_file
